@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSR | Controle de Canais Telefonia v7.2</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --hsr-red: #e30613; --hsr-dark: #1e1e2d; --bg: #f0f4f8; --border: #dbe2e8; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); margin: 0; color: #1e1e2d; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 260px; background: var(--hsr-dark); color: white; display: flex; flex-direction: column; padding: 20px 0; flex-shrink: 0; }
+        .logo-area { padding: 0 25px 30px; border-bottom: 1px solid #333; text-align: center; }
+        .logo-hsr { font-size: 24px; font-weight: 800; color: white; margin-bottom: 5px;}
+        .nav-item { padding: 15px 25px; display: flex; align-items: center; gap: 12px; color: white; background: #2b2b40; border-left: 4px solid var(--hsr-red); font-weight: 600; }
+        .main { flex: 1; padding: 30px; overflow-y: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        h1 { font-weight: 800; margin: 0; font-size: 26px; color: var(--hsr-dark); }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; border: 1px solid var(--border); text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .stat-card small { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+        .val { font-size: 38px; font-weight: 800; color: var(--hsr-red); margin-top: 5px; }
+        .filter-bar { background: white; padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 25px; display: flex; gap: 20px; align-items: flex-end; }
+        .filter-group { flex: 1; }
+        .filter-group label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 8px; display: block; }
+        .filter-bar select, .filter-bar input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); font-family: inherit; font-weight: 600; outline: none;}
+        .chart-box { background: white; padding: 25px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 25px; }
+        h3 { font-weight: 800; color: var(--hsr-dark); margin-top: 0; font-size: 18px; }
+        .table-container { background: white; border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 50px;}
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8fafc; padding: 15px; text-align: left; font-size: 11px; text-transform: uppercase; font-weight: 800; border-bottom: 2px solid var(--border); position: sticky; top: 0; }
+        td { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        tr:hover { background: #fcfcfc; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="logo-area">
+            <div class="logo-hsr">HSR</div>
+            <div style="font-size: 10px; color: #a2a3b7; text-transform: uppercase;">Controle de Canais</div>
+        </div>
+        <div class="nav-item"><i class="bi bi-bar-chart-fill"></i> DASHBOARD BI</div>
+    </div>
+
+    <div class="main">
+        <div class="header">
+            <h1>Controle de Canais Telefonia HSR</h1>
+            <div id="data-atual" style="color: gray; font-weight: 600;"></div>
+        </div>
+
+        <div class="filter-bar">
+            <div class="filter-group">
+                <label>Plataforma</label>
+                <select id="sel-plataforma" onchange="atualizarTudo()">
+                    <option value="total">Total (Vonix + Dialer)</option>
+                    <option value="vonix">Somente Vonix</option>
+                    <option value="dialer">Somente Dialer</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Data Início</label>
+                <input type="date" id="data-ini" onchange="atualizarTudo()" value="2026-01-01">
+            </div>
+            <div class="filter-group">
+                <label>Data Fim</label>
+                <input type="date" id="data-fim" onchange="atualizarTudo()" value="2026-03-31">
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <small>Pico Máximo no Período</small>
+                <div class="val" id="card-pico">0</div>
+            </div>
+            <div class="stat-card">
+                <small>Média Diária no Período</small>
+                <div class="val" id="card-media" style="color:#2e5481">0</div>
+            </div>
+            <div class="stat-card">
+                <small>Último Registro</small>
+                <div class="val" id="card-hoje" style="color:#10b981">0</div>
+            </div>
+        </div>
+
+        <div class="chart-box">
+            <h3>📈 Evolução do Tráfego (Pico Diário)</h3>
+            <canvas id="chartDiario" height="100"></canvas>
+        </div>
+
+        <div class="table-container">
+            <div style="padding: 20px; border-bottom: 1px solid var(--border);">
+                <h3>📑 Histórico Detalhado (Dia a Dia)</h3>
+            </div>
+            <div style="max-height: 500px; overflow-y: auto;">
+                <table id="tab-dados">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Canais Vonix</th>
+                            <th>Canais Dialer</th>
+                            <th>Ocupação Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpo-tabela">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dados brutos (Baseados na sua planilha ramais.csv)
+        const rawData = [
+            {"dia":"06/01/2026","dialer":28,"vonix":52},{"dia":"07/01/2026","dialer":21,"vonix":58},{"dia":"08/01/2026","dialer":18,"vonix":67},{"dia":"09/01/2026","dialer":19,"vonix":66},{"dia":"11/01/2026","dialer":1,"vonix":3},{"dia":"12/01/2026","dialer":24,"vonix":35},{"dia":"13/01/2026","dialer":70,"vonix":92},{"dia":"14/01/2026","dialer":50,"vonix":125},{"dia":"15/01/2026","dialer":68,"vonix":134},{"dia":"16/01/2026","dialer":104,"vonix":94},{"dia":"19/01/2026","dialer":97,"vonix":119},{"dia":"20/01/2026","dialer":88,"vonix":127},{"dia":"21/01/2026","dialer":74,"vonix":154},{"dia":"22/01/2026","dialer":85,"vonix":113},{"dia":"23/01/2026","dialer":127,"vonix":187},{"dia":"24/01/2026","dialer":96,"vonix":131},{"dia":"26/01/2026","dialer":140,"vonix":92},{"dia":"27/01/2026","dialer":154,"vonix":64},{"dia":"28/01/2026","dialer":193,"vonix":55},{"dia":"30/01/2026","dialer":131,"vonix":10},{"dia":"02/02/2026","dialer":117,"vonix":35},{"dia":"03/02/2026","dialer":132,"vonix":46},{"dia":"04/02/2026","dialer":98,"vonix":63},{"dia":"05/02/2026","dialer":130,"vonix":88},{"dia":"06/02/2026","dialer":111,"vonix":108},{"dia":"09/02/2026","dialer":110,"vonix":114},{"dia":"10/02/2026","dialer":146,"vonix":144},{"dia":"11/02/2026","dialer":131,"vonix":120},{"dia":"12/02/2026","dialer":119,"vonix":109},{"dia":"13/02/2026","dialer":123,"vonix":123},{"dia":"16/02/2026","dialer":50,"vonix":111},{"dia":"17/02/2026","dialer":35,"vonix":131},{"dia":"18/02/2026","dialer":58,"vonix":107},{"dia":"19/02/2026","dialer":43,"vonix":112},{"dia":"20/02/2026","dialer":45,"vonix":95},{"dia":"23/02/2026","dialer":34,"vonix":101},{"dia":"24/02/2026","dialer":48,"vonix":114},{"dia":"25/02/2026","dialer":32,"vonix":10},{"dia":"26/02/2026","dialer":22,"vonix":110},{"dia":"27/02/2026","dialer":15,"vonix":105},{"dia":"02/03/2026","dialer":134,"vonix":134},{"dia":"03/03/2026","dialer":111,"vonix":120},{"dia":"04/03/2026","dialer":120,"vonix":140},{"dia":"05/03/2026","dialer":115,"vonix":151},{"dia":"06/03/2026","dialer":121,"vonix":132},{"dia":"09/03/2026","dialer":100,"vonix":131},{"dia":"10/03/2026","dialer":109,"vonix":110},{"dia":"11/03/2026","dialer":130,"vonix":104},{"dia":"12/03/2026","dialer":135,"vonix":125},{"dia":"13/03/2026","dialer":80,"vonix":109},{"dia":"16/03/2026","dialer":94,"vonix":134},{"dia":"17/03/2026","dialer":112,"vonix":110},{"dia":"18/03/2026","dialer":115,"vonix":144},{"dia":"19/03/2026","dialer":54,"vonix":113},{"dia":"20/03/2026","dialer":72,"vonix":104},{"dia":"23/03/2026","dialer":10,"vonix":111},{"dia":"24/03/2026","dialer":79,"vonix":119},{"dia":"25/03/2026","dialer":85,"vonix":100},{"dia":"26/03/2026","dialer":92,"vonix":108}
+        ];
+
+        let chartDiario;
+
+        function atualizarTudo() {
+            const plataforma = document.getElementById('sel-plataforma').value;
+            const dataIniInput = document.getElementById('data-ini').value;
+            const dataFimInput = document.getElementById('data-fim').value;
+            
+            const dIni = new Date(dataIniInput + "T00:00:00");
+            const dFim = new Date(dataFimInput + "T23:59:59");
+
+            // Filtragem e Ordenação dos Dados
+            let dadosFiltrados = rawData.filter(d => {
+                const parts = d.dia.split('/');
+                const dDoc = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
+                return dDoc >= dIni && dDoc <= dFim;
+            }).sort((a,b) => {
+                const pA = a.dia.split('/'); const pB = b.dia.split('/');
+                return new Date(`${pA[2]}-${pA[1]}-${pA[0]}`) - new Date(`${pB[2]}-${pB[1]}-${pB[0]}`);
+            });
+
+            // Dados para Gráfico e Tabela
+            const labels = dadosFiltrados.map(d => d.dia);
+            const vVals = dadosFiltrados.map(d => d.vonix);
+            const dVals = dadosFiltrados.map(d => d.dialer);
+            const tVals = dadosFiltrados.map(d => d.vonix + d.dialer);
+
+            // Determinar o que exibir baseado no seletor de plataforma
+            let valsExibir = [];
+            if(plataforma === 'vonix') valsExibir = vVals;
+            else if(plataforma === 'dialer') valsExibir = dVals;
+            else valsExibir = tVals;
+
+            // Atualizar Cards
+            document.getElementById('card-pico').innerText = valsExibir.length ? Math.max(...valsExibir) : 0;
+            document.getElementById('card-media').innerText = valsExibir.length ? (valsExibir.reduce((a,b) => a+b, 0) / valsExibir.length).toFixed(0) : 0;
+            document.getElementById('card-hoje').innerText = valsExibir.length ? valsExibir[valsExibir.length - 1] : 0;
+
+            // Atualizar Tabela (Dia a Dia)
+            const tbody = document.getElementById('corpo-tabela');
+            tbody.innerHTML = "";
+            
+            // Exibir em ordem decrescente na tabela (mais recente primeiro)
+            [...dadosFiltrados].reverse().forEach(d => {
+                const total = d.vonix + d.dialer;
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>${d.dia}</b></td>
+                        <td>${d.vonix}</td>
+                        <td>${d.dialer}</td>
+                        <td style="font-weight:800; color:var(--hsr-red)">${total}</td>
+                    </tr>`;
+            });
+
+            renderChart(labels, valsExibir, plataforma);
+        }
+
+        function renderChart(labels, data, plataforma) {
+            const ctx = document.getElementById('chartDiario').getContext('2d');
+            if(chartDiario) chartDiario.destroy();
+
+            chartDiario = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Pico Simultâneo',
+                        data: data,
+                        borderColor: '#e30613',
+                        backgroundColor: 'rgba(227, 6, 19, 0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        document.getElementById('data-atual').innerText = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        window.onload = atualizarTudo;
+    </script>
+</body>
+</html>
